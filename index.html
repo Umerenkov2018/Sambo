@@ -1208,9 +1208,57 @@ function launchConfetti() {
 }
 
 // ─────────────────────────────────────────────────
+// PERSIST — localStorage save / load
+// ─────────────────────────────────────────────────
+const STORAGE_KEY = 'sambo_tracker_v1';
+
+function saveState() {
+  try {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify({
+      profiles:  state.profiles,
+      trainings: state.trainings,
+    }));
+  } catch(e) { console.warn('Save failed:', e); }
+}
+
+function loadState() {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    if (!raw) return false;
+    const saved = JSON.parse(raw);
+    if (saved.profiles && saved.profiles.length) {
+      state.profiles  = saved.profiles;
+      state.trainings = saved.trainings || {};
+      return true;
+    }
+  } catch(e) { console.warn('Load failed:', e); }
+  return false;
+}
+
+// Patch every mutating function to auto-save after changes
+const _origCreateProfile = createProfile;
+createProfile = function() { _origCreateProfile(); saveState(); };
+
+const _origConfirmDelete = confirmDelete;
+confirmDelete = function() { _origConfirmDelete(); saveState(); };
+
+const _origSaveTraining = saveTraining;
+saveTraining = function() { _origSaveTraining(); saveState(); };
+
+// Also save on page hide/unload as a safety net
+window.addEventListener('pagehide', saveState);
+window.addEventListener('beforeunload', saveState);
+
+// ─────────────────────────────────────────────────
 // INIT
 // ─────────────────────────────────────────────────
+const hadSaved = loadState();
 renderProfiles();
+
+if (hadSaved) {
+  showToast('💾 Данные загружены', 'var(--blue)');
+}
+
 document.getElementById('screen-training').addEventListener('click', ()=>{}, false);
 
 // Wire up training screen init when navigating to it
